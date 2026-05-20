@@ -1,0 +1,35 @@
+{
+  "chain": "arbitrum",
+  "protocol": "uniswap_v3",
+  "base_token": "WETH",
+  "quote_token": "USDC",
+  "pool_fee_tier": 500,
+  "pool_address": "0xc6962004f452be9203591991d15f6b388e09e8d0",
+  "timeframe": "5m",
+  "rsi_period": 14,
+  "rsi_lower": 45,
+  "rsi_upper": 55,
+  "trade_size_usd": 5,
+  "max_slippage_bps": 50,
+  "min_base_balance": "0.0001",
+  "force_action": "",
+  "token_funding": [
+    {
+      "symbol": "WETH",
+      "address": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+      "amount": "5",
+      "amount_type": "usd"
+    },
+    {
+      "symbol": "USDC",
+      "address": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+      "amount": "5",
+      "amount_type": "usd"
+    }
+  ],
+  "anvil_funding": {
+    "ETH": 10,
+    "WETH": 5,
+    "USDC": 10000
+  }
+}

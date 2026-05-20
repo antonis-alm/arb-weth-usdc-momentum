@@ -1,0 +1,5 @@
+{
+  "display_name": "Arb WETH USDC Momentum",
+  "description": "RSI momentum dashboard for WETH/USDC swaps on Arbitrum Uniswap V3, including momentum and position regime state.",
+  "icon": "📈"
+}
