@@ -76,6 +76,8 @@ class ArbWethUsdcMomentumStrategy(IntentStrategy):
             return Intent.hold(reason=f"RSI unavailable: {exc}")
 
         current_rsi = Decimal(str(rsi.value))
+        previous_rsi = self._prev_rsi
+        logger.info("RSI snapshot prev=%s latest=%s", previous_rsi, current_rsi)
 
         try:
             base_balance = market.balance(self.base_token)
@@ -85,13 +87,13 @@ class ArbWethUsdcMomentumStrategy(IntentStrategy):
 
         self._holding_asset = "base" if base_balance.balance >= self.min_base_balance else "quote"
 
-        if self._prev_rsi is None:
+        if previous_rsi is None:
             self._prev_rsi = current_rsi
             self._last_signal = "none"
             return Intent.hold(reason="Initialized RSI baseline; waiting for crossing event")
 
-        crossed_up = self._prev_rsi <= self.rsi_upper and current_rsi > self.rsi_upper
-        crossed_down = self._prev_rsi >= self.rsi_lower and current_rsi < self.rsi_lower
+        crossed_up = previous_rsi <= self.rsi_upper and current_rsi > self.rsi_upper
+        crossed_down = previous_rsi >= self.rsi_lower and current_rsi < self.rsi_lower
 
         self._prev_rsi = current_rsi
 
