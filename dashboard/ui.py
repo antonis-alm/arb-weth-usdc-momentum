@@ -18,15 +18,29 @@ def _to_decimal(value: Any, default: str) -> Decimal:
         return Decimal(default)
 
 
-def _build_rsi_config(strategy_config: dict[str, Any]):
+def _resolve_rsi_bounds(strategy_config: dict[str, Any], session_state: dict[str, Any]) -> tuple[Decimal, Decimal]:
+    status = session_state.get("status", {}) if isinstance(session_state, dict) else {}
+    state = status.get("state", {}) if isinstance(status, dict) else {}
+
+    lower_raw = state.get("rsi_lower")
+    if lower_raw is None:
+        lower_raw = strategy_config.get("rsi_lower", strategy_config.get("rsi_oversold", 40))
+
+    upper_raw = state.get("rsi_upper")
+    if upper_raw is None:
+        upper_raw = strategy_config.get("rsi_upper", strategy_config.get("rsi_overbought", 60))
+
+    return _to_decimal(lower_raw, "40"), _to_decimal(upper_raw, "60")
+
+
+def _build_rsi_config(strategy_config: dict[str, Any], session_state: dict[str, Any]):
     rsi_period = int(strategy_config.get("rsi_period", 14))
-    rsi_lower = float(strategy_config.get("rsi_lower", 40))
-    rsi_upper = float(strategy_config.get("rsi_upper", 60))
+    rsi_lower, rsi_upper = _resolve_rsi_bounds(strategy_config, session_state)
 
     config = get_rsi_config(
         period=rsi_period,
-        overbought=rsi_upper,
-        oversold=rsi_lower,
+        overbought=float(rsi_upper),
+        oversold=float(rsi_lower),
     )
     config.signal_type = "momentum"
     config.base_token = str(strategy_config.get("base_token", config.base_token))
@@ -44,8 +58,7 @@ def _render_regime_metrics(strategy_config: dict[str, Any], session_state: dict[
     last_signal = str(state.get("last_signal", "none")).replace("_", " ").title()
     holding_asset = str(state.get("holding_asset", "quote")).upper()
 
-    rsi_lower = _to_decimal(strategy_config.get("rsi_lower", 40), "40")
-    rsi_upper = _to_decimal(strategy_config.get("rsi_upper", 60), "60")
+    rsi_lower, rsi_upper = _resolve_rsi_bounds(strategy_config, session_state)
 
     if prev_rsi > rsi_upper:
         momentum_regime = "Bullish momentum"
@@ -74,7 +87,7 @@ def render_custom_dashboard(
 ) -> None:
     st.title("Arb WETH/USDC Momentum")
 
-    config = _build_rsi_config(strategy_config)
+    config = _build_rsi_config(strategy_config, session_state)
 
     session_state = prepare_ta_session_state(
         api_client,

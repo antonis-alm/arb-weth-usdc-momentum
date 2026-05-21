@@ -14,7 +14,7 @@ def test_build_rsi_config_uses_momentum_thresholds():
         "protocol": "uniswap_v3",
     }
 
-    config = _build_rsi_config(strategy_config)
+    config = _build_rsi_config(strategy_config, session_state={})
 
     assert config.indicator_name == "RSI"
     assert config.indicator_period == 14
@@ -25,6 +25,27 @@ def test_build_rsi_config_uses_momentum_thresholds():
     assert config.quote_token == "USDC"
     assert config.chain == "arbitrum"
     assert config.protocol == "uniswap_v3"
+
+
+def test_build_rsi_config_prefers_runtime_state_bounds():
+    strategy_config = {
+        "rsi_period": 14,
+        "rsi_lower": 45,
+        "rsi_upper": 55,
+    }
+    session_state = {
+        "status": {
+            "state": {
+                "rsi_lower": "40",
+                "rsi_upper": "60",
+            }
+        }
+    }
+
+    config = _build_rsi_config(strategy_config, session_state=session_state)
+
+    assert config.lower_threshold == 40
+    assert config.upper_threshold == 60
 
 
 @patch("dashboard.ui.render_ta_dashboard")
