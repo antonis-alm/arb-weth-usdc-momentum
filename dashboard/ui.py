@@ -20,8 +20,8 @@ def _to_decimal(value: Any, default: str) -> Decimal:
 
 def _build_rsi_config(strategy_config: dict[str, Any]):
     rsi_period = int(strategy_config.get("rsi_period", 14))
-    rsi_lower = float(strategy_config.get("rsi_lower", 45))
-    rsi_upper = float(strategy_config.get("rsi_upper", 55))
+    rsi_lower = float(strategy_config.get("rsi_lower", 40))
+    rsi_upper = float(strategy_config.get("rsi_upper", 60))
 
     config = get_rsi_config(
         period=rsi_period,
@@ -44,8 +44,8 @@ def _render_regime_metrics(strategy_config: dict[str, Any], session_state: dict[
     last_signal = str(state.get("last_signal", "none")).replace("_", " ").title()
     holding_asset = str(state.get("holding_asset", "quote")).upper()
 
-    rsi_lower = _to_decimal(strategy_config.get("rsi_lower", 45), "45")
-    rsi_upper = _to_decimal(strategy_config.get("rsi_upper", 55), "55")
+    rsi_lower = _to_decimal(strategy_config.get("rsi_lower", 40), "40")
+    rsi_upper = _to_decimal(strategy_config.get("rsi_upper", 60), "60")
 
     if prev_rsi > rsi_upper:
         momentum_regime = "Bullish momentum"
