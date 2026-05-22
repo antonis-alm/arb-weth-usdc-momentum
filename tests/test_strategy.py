@@ -167,6 +167,51 @@ def test_cross_below_45_sells_weth():
     assert intent.to_token == "USDC"
 
 
+def test_cross_to_neutral_exits_base_position():
+    strategy = _strategy()
+
+    first_market = _make_market(
+        candle_ts=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+        rsi_value="62",
+        base_balance="1",
+        base_balance_usd="2000",
+        quote_balance_usd="1000",
+    )
+    strategy.decide(first_market)
+
+    second_market = _make_market(
+        candle_ts=datetime(2026, 1, 1, 12, 5, tzinfo=UTC),
+        rsi_value="54",
+        base_balance="1",
+        base_balance_usd="2000",
+        quote_balance_usd="1000",
+    )
+    intent = strategy.decide(second_market)
+
+    assert intent.intent_type.value == "SWAP"
+    assert intent.from_token == "WETH"
+    assert intent.to_token == "USDC"
+    assert intent.amount == "all"
+
+
+def test_neutral_cross_holds_if_already_in_usdc():
+    strategy = _strategy()
+
+    strategy._prev_rsi = Decimal("62")
+    market = _make_market(
+        candle_ts=datetime(2026, 1, 1, 12, 5, tzinfo=UTC),
+        rsi_value="54",
+        base_balance="0",
+        base_balance_usd="0",
+        quote_balance_usd="10000",
+    )
+
+    intent = strategy.decide(market)
+
+    assert intent.intent_type.value == "HOLD"
+    assert "Neutral cross but already holding USDC" in intent.reason
+
+
 def test_no_duplicate_buy_when_already_holding_weth():
     strategy = _strategy()
 
@@ -208,7 +253,7 @@ def test_non_cross_above_band_holds():
     strategy._prev_rsi = Decimal("56")
     market = _make_market(
         candle_ts=datetime(2026, 1, 1, 12, 5, tzinfo=UTC),
-        rsi_value="58",
+        rsi_value="57",
         base_balance="0",
         base_balance_usd="0",
         quote_balance_usd="10000",

@@ -94,6 +94,9 @@ class ArbWethUsdcMomentumStrategy(IntentStrategy):
 
         crossed_up = previous_rsi <= self.rsi_upper and current_rsi > self.rsi_upper
         crossed_down = previous_rsi >= self.rsi_lower and current_rsi < self.rsi_lower
+        crossed_to_neutral = (
+            previous_rsi > self.rsi_upper and self.rsi_lower <= current_rsi <= self.rsi_upper
+        )
 
         self._prev_rsi = current_rsi
 
@@ -107,6 +110,19 @@ class ArbWethUsdcMomentumStrategy(IntentStrategy):
                 from_token=self.quote_token,
                 to_token=self.base_token,
                 amount_usd=self.trade_size_usd,
+                max_slippage=self._max_slippage(),
+                protocol=self.protocol,
+                chain=self.chain,
+            )
+
+        if crossed_to_neutral:
+            self._last_signal = "neutral_exit"
+            if self._holding_asset == "quote":
+                return Intent.hold(reason="Neutral cross but already holding USDC")
+            return Intent.swap(
+                from_token=self.base_token,
+                to_token=self.quote_token,
+                amount="all",
                 max_slippage=self._max_slippage(),
                 protocol=self.protocol,
                 chain=self.chain,
