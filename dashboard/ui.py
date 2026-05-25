@@ -11,26 +11,33 @@ from almanak.framework.dashboard.templates import (
 )
 
 
-def _to_decimal(value: Any, default: str) -> Decimal:
+def _as_decimal(value: Any, default: str) -> Decimal:
     try:
         return Decimal(str(value))
     except Exception:
         return Decimal(default)
 
 
-def _resolve_rsi_bounds(strategy_config: dict[str, Any], session_state: dict[str, Any]) -> tuple[Decimal, Decimal]:
+def _runtime_state(session_state: dict[str, Any]) -> dict[str, Any]:
     status = session_state.get("status", {}) if isinstance(session_state, dict) else {}
-    state = status.get("state", {}) if isinstance(status, dict) else {}
+    return status.get("state", {}) if isinstance(status, dict) else {}
 
-    lower_raw = state.get("rsi_lower")
-    if lower_raw is None:
-        lower_raw = strategy_config.get("rsi_lower", strategy_config.get("rsi_oversold", 40))
 
-    upper_raw = state.get("rsi_upper")
-    if upper_raw is None:
-        upper_raw = strategy_config.get("rsi_upper", strategy_config.get("rsi_overbought", 60))
+def _resolve_rsi_bounds(
+    strategy_config: dict[str, Any],
+    session_state: dict[str, Any],
+) -> tuple[Decimal, Decimal]:
+    state = _runtime_state(session_state)
 
-    return _to_decimal(lower_raw, "40"), _to_decimal(upper_raw, "60")
+    lower = state.get("rsi_lower")
+    if lower is None:
+        lower = strategy_config.get("rsi_lower", strategy_config.get("rsi_oversold", 40))
+
+    upper = state.get("rsi_upper")
+    if upper is None:
+        upper = strategy_config.get("rsi_upper", strategy_config.get("rsi_overbought", 60))
+
+    return _as_decimal(lower, "40"), _as_decimal(upper, "60")
 
 
 def _build_rsi_config(strategy_config: dict[str, Any], session_state: dict[str, Any]):
@@ -39,8 +46,8 @@ def _build_rsi_config(strategy_config: dict[str, Any], session_state: dict[str, 
 
     config = get_rsi_config(
         period=rsi_period,
-        overbought=float(rsi_upper),
         oversold=float(rsi_lower),
+        overbought=float(rsi_upper),
     )
     config.signal_type = "momentum"
     config.base_token = str(strategy_config.get("base_token", config.base_token))
@@ -50,31 +57,36 @@ def _build_rsi_config(strategy_config: dict[str, Any], session_state: dict[str, 
     return config
 
 
-def _render_regime_metrics(strategy_config: dict[str, Any], session_state: dict[str, Any]) -> None:
-    status = session_state.get("status", {})
-    state = status.get("state", {}) if isinstance(status, dict) else {}
+def _regime_labels(
+    strategy_config: dict[str, Any],
+    session_state: dict[str, Any],
+) -> tuple[str, str, str, Decimal]:
+    state = _runtime_state(session_state)
 
-    prev_rsi = _to_decimal(state.get("prev_rsi"), "0")
+    rsi_value = _as_decimal(state.get("prev_rsi"), "0")
     last_signal = str(state.get("last_signal", "none")).replace("_", " ").title()
+
+    base_token = str(strategy_config.get("base_token", "WETH")).upper()
     holding_asset = str(state.get("holding_asset", "quote")).upper()
+    position_regime = "Long base" if holding_asset in {"BASE", base_token} else "Quote defensive"
 
     rsi_lower, rsi_upper = _resolve_rsi_bounds(strategy_config, session_state)
-
-    if prev_rsi > rsi_upper:
-        momentum_regime = "Bullish momentum"
-    elif prev_rsi < rsi_lower:
-        momentum_regime = "Bearish momentum"
+    if rsi_value > rsi_upper:
+        momentum = "Bullish momentum"
+    elif rsi_value < rsi_lower:
+        momentum = "Bearish momentum"
     else:
-        momentum_regime = "Neutral range"
+        momentum = "Neutral range"
 
-    if holding_asset in {"BASE", str(strategy_config.get("base_token", "WETH")).upper()}:
-        position_regime = "Long base"
-    else:
-        position_regime = "Quote defensive"
+    return momentum, position_regime, last_signal, rsi_value
+
+
+def _render_overview_metrics(strategy_config: dict[str, Any], session_state: dict[str, Any]) -> None:
+    momentum, position_regime, last_signal, rsi_value = _regime_labels(strategy_config, session_state)
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("RSI", f"{prev_rsi:.2f}")
-    col2.metric("Momentum", momentum_regime)
+    col1.metric("RSI", f"{rsi_value:.2f}")
+    col2.metric("Momentum", momentum)
     col3.metric("Position Regime", position_regime)
     col4.metric("Last Signal", last_signal)
 
@@ -88,12 +100,11 @@ def render_custom_dashboard(
     st.title("Arb WETH/USDC Momentum")
 
     config = _build_rsi_config(strategy_config, session_state)
-
-    session_state = prepare_ta_session_state(
+    hydrated_session_state = prepare_ta_session_state(
         api_client,
         session_state=session_state,
         config=config,
     )
 
-    _render_regime_metrics(strategy_config, session_state)
-    render_ta_dashboard(strategy_id, strategy_config, session_state, config)
+    _render_overview_metrics(strategy_config, hydrated_session_state)
+    render_ta_dashboard(strategy_id, strategy_config, hydrated_session_state, config)
